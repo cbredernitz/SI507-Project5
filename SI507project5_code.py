@@ -1,4 +1,3 @@
-## import statements
 __author__ = 'Chris Bredernitz'
 
 from requests_oauthlib import OAuth2Session
@@ -6,10 +5,9 @@ import json
 import webbrowser
 import eventbrite_data
 import csv
+
 ## CACHING SETUP
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
-DEBUG = True
-CACHE_FNAME = "cache_contents.json"
 CREDS_CACHE_FILE = "creds.json"
 
 #--------------------------------------------------
@@ -30,19 +28,17 @@ def save_token(token_dict):
         f.write(token_json)
 
 #  Save data cache
-def save_cache(cache_dict):
-    with open(CACHE_FNAME, 'w') as f:
+def save_cache(cache_dict, cache_fname):
+    with open(cache_fname, 'w') as f:
         cache_json = json.dumps(cache_dict)
         f.write(cache_json)
 
 #  Load data cache
-def get_data_cache():
-    with open(CACHE_FNAME, 'r') as f:
+def get_data_cache(cache_fname):
+    with open(cache_fname, 'r') as f:
         cache_json = f.read()
         cache_dict = json.loads(cache_json)
         return cache_dict
-
-
 
 ## ADDITIONAL CODE for program should go here...
 ## Perhaps authentication setup, functions to get and process data, a class definition... etc.
@@ -93,7 +89,6 @@ def start_eventbrite_session():
         #  saves the token for future requests
         save_token(token)
 
-
 #  Main function to make the request.
 def Make_Eventbrite_request(url, params=None):
     global oauth2inst
@@ -107,57 +102,83 @@ def Make_Eventbrite_request(url, params=None):
     return oauth2inst.get(url, params=params)
 
 # Making a request to events in the Ann Arbor area
-
 try:
-    response_dict = get_data_cache()
+    aa_response_dict = get_data_cache('AA_cache_content.json')
     print("We are using the cache file!\n")
 
 except:
     print("Fetching data from the Eventbrite API for events in Ann Arbor, MI")
     event_url = 'https://www.eventbriteapi.com/v3/events/search/'
-    event_info = Make_Eventbrite_request(event_url, params = {"location.address": "Ann Arbor"})
-    response_dict = json.loads(event_info.text)
-    save_cache(response_dict)
+    aa_event_info = Make_Eventbrite_request(event_url, params = {"location.address": "Ann Arbor, MI"})
+    aa_response_dict = json.loads(aa_event_info.text)
+    save_cache(aa_response_dict, "AA_cache_content.json")
 
-# print(json.dumps(response_dict, indent=2))
+#  Making a request to get events in the San Francisco area
+try:
+    sf_response_dict = get_data_cache('SF_cache_content.json')
+    print("We are using the cache file!\n")
 
-# prints out each of the event names
-for x in response_dict['events']:
-    print("\n")
-    print(x['name']['text'])
-    print('-'*20)
-
-# Class to handle assignment
-# class Assignment(object):
-#     """ Class to Assign the information in the JSON file to
-#         variables.  This makes creating the csv file easier."""
-#     def __init__(self, json_data):
-#         # for x in json_data['events']:
-#         self.Name = json_data['name']['text']
-#         self.Start =
-#
+except:
+    print("Fetching data from the Eventbrite API for events in San Francisco, CA")
+    event_url = 'https://www.eventbriteapi.com/v3/events/search/'
+    sf_event_info = Make_Eventbrite_request(event_url, params = {"location.address": "San Francisco, CA"})
+    sf_response_dict = json.loads(sf_event_info.text)
+    save_cache(sf_response_dict, "SF_cache_content.json")
 
 
-# The below handles writing CSV files of the data collected above
+# Class to handle assignment for CSV files
+class Assignment(object):
+    """ Class to Assign the information in the JSON file to
+        variables.  This makes creating the csv file easier."""
+    def __init__(self, json_data):
+        # for x in json_data['events']:
+        self.Name = json_data['name']['text'].encode('utf-8')
+        self.Start = json_data['start']['local']
+        self.End = json_data['end']['local']
+        self.Description = json_data['description']['text']
+        if json_data['is_free']:
+            self.Price = "Free"
+        if not json_data['is_free']:
+            self.Price = "Paid"
 
-# with open('Ann_Arbor_Events.csv', 'w', newline = '') as AA_events:
-#     AA_writter = csv.writer(california_csv, delimiter=',')
-#     AA_writter.writerow(["Name",
-#                             "Start Time",
-#                             "End Time",
-#                             "Address",
-#                             "Description"])
-#     for info in california_natl_sites:
-#         movie_writter.writerow([info.name, info.location, info.type, info.get_mailing_address(), info.description])
-# california_csv.close()
+#  Class instances of each event from the request
+aa_assingment = []
+for x in aa_response_dict['events']:
+    aa_assingment.append(Assignment(x))
+
+sf_assingment = []
+for x in sf_response_dict['events']:
+    sf_assingment.append(Assignment(x))
 
 ##############################################################################
-#Example request to retrieve personal info on my profile
+# The below handles writing CSV files of the data collected above
 
-# p_url = 'https://www.eventbriteapi.com/v3/users/me/?token=ZQFUUDM33JTWKSOGO4Z'
-# personal_info = Make_Eventbrite_request(p_url)
-# response_diction = json.loads(personal_info.text)
-# print(json.dumps(response_diction, indent=2))
+with open('Ann_Arbor_Events.csv', 'w', newline = '') as AA_Events_csv:
+    AA_writter = csv.writer(AA_Events_csv, delimiter=',')
+    AA_writter.writerow(["Name",
+                        "Start Time",
+                        "End Time",
+                        "Description",
+                        "Price"])
+    for info in aa_assingment:
+        AA_writter.writerow([info.Name,
+                                info.Start,
+                                info.End,
+                                info.Description,
+                                info.Price])
+AA_Events_csv.close()
 
-
-    ## Make sure to run your code and write CSV files by the end of the program.
+with open('San_Francisco_Events.csv', 'w', newline = '') as SF_Events_csv:
+    SF_writter = csv.writer(SF_Events_csv, delimiter=',')
+    SF_writter.writerow(["Name",
+                        "Start Time",
+                        "End Time",
+                        "Description",
+                        "Price"])
+    for info in sf_assingment:
+        SF_writter.writerow([info.Name,
+                            info.Start,
+                            info.End,
+                            info.Description,
+                            info.Price])
+SF_Events_csv.close()

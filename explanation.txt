@@ -1,1 +1,10 @@
-Put your Project 5 brief explanation, as directed, here.
+
+```
+    I am accessing the Eventbrite search API and gathering:
+    - 50 Events for each of 2 cities I'm going to search for
+    - For each event, I'll be accessing the name, start and end times, description, and if the price of admissions is free or a cost.
+    - I'll write 2 CSV files, one for each city's search
+    - Data in each CSV file: 5 columns -- Name, Start, End, Description, Price
+    - URL for the API: <https://www.eventbrite.com/developer/v3/>
+    - If necessary, URL describing the authentication process for the API: <https://www.eventbrite.com/developer/v3/api_overview/authentication/>
+```
