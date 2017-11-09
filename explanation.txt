@@ -7,4 +7,6 @@
     - Data in each CSV file: 5 columns -- Name, Start, End, Description, Price
     - URL for the API: <https://www.eventbrite.com/developer/v3/>
     - If necessary, URL describing the authentication process for the API: <https://www.eventbrite.com/developer/v3/api_overview/authentication/>
+
+    - Be sure to save your client_id and client_secret from the API into a file named 'eventbrite_data'.  This will affect the Oauth if not done properly 
 ```

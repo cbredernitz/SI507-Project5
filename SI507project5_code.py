@@ -3,7 +3,7 @@ __author__ = 'Chris Bredernitz'
 from requests_oauthlib import OAuth2Session
 import json
 import webbrowser
-import eventbrite_data
+from eventbrite_data import client_id, client_secret
 import csv
 
 ## CACHING SETUP
@@ -46,8 +46,8 @@ def get_data_cache(cache_fname):
 #  Client ID and Client Secret obtained by setting up an application through
 #  your eventbrite profile.
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
-CLIENT_ID = eventbrite_data.client_id
-CLIENT_SECRET = eventbrite_data.client_secret
+CLIENT_ID = client_id
+CLIENT_SECRET = client_secret
 
 #  Below are the urls and redirect URI specified in your application profile.
 #  The two URL's SHOULD NOT CHANGE sicne these are provided by eventbrite
@@ -128,8 +128,7 @@ except:
 
 # Class to handle assignment for CSV files
 class Assignment(object):
-    """ Class to Assign the information in the JSON file to
-        variables.  This makes creating the csv file easier."""
+    """ Class to Assign the information in the JSON file to variables.  This makes creating the csv file easier."""
     def __init__(self, json_data):
         # for x in json_data['events']:
         self.Name = json_data['name']['text'].encode('utf-8')
