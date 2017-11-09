@@ -1,5 +1,4 @@
 __author__ = 'Chris Bredernitz'
-
 from requests_oauthlib import OAuth2Session
 import json
 import webbrowser
@@ -9,10 +8,17 @@ import csv
 ## CACHING SETUP
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 CREDS_CACHE_FILE = "creds.json"
+CACHE_FNAME = "cache_contents.json"
 
 #--------------------------------------------------
 # Load cache files: data and credentials
 #--------------------------------------------------
+try:
+    with open(CACHE_FNAME, 'r') as cache_file:
+        cache_json = cache_file.read()
+        CACHE_DICTION = json.loads(cache_json)
+except:
+    CACHE_DICTION = {}
 
 #  Load token cache
 def get_saved_token():
@@ -28,24 +34,31 @@ def save_token(token_dict):
         f.write(token_json)
 
 #  Save data cache
-def save_cache(cache_dict, cache_fname):
-    with open(cache_fname, 'w') as f:
-        cache_json = json.dumps(cache_dict)
+def save_cache(cache_dict, identifier):
+    identifier = identifier.upper()
+    CACHE_DICTION[identifier] = {
+        'values': cache_dict,
+    }
+
+    with open(CACHE_FNAME, 'w') as f:
+        cache_json = json.dumps(CACHE_DICTION)
         f.write(cache_json)
 
 #  Load data cache
-def get_data_cache(cache_fname):
-    with open(cache_fname, 'r') as f:
-        cache_json = f.read()
-        cache_dict = json.loads(cache_json)
-        return cache_dict
+def get_from_data_cache(identifier, dictionary):
+    identifier = identifier.upper()
+    if identifier in dictionary:
+        data = dictionary[identifier]['values']
+    else:
+        data = None
+    return data
 
-## ADDITIONAL CODE for program should go here...
-## Perhaps authentication setup, functions to get and process data, a class definition... etc.
+def create_request_identifier(url, params_diction):
+    sorted_params = sorted(params_diction.items(),key=lambda x:x[0])
+    params_str = "_".join([str(e) for l in sorted_params for e in l]) # Make the list of tuples into a flat list using a complex list comprehension
+    total_ident = url + "?" + params_str
+    return total_ident.upper()
 
-#  Client ID and Client Secret obtained by setting up an application through
-#  your eventbrite profile.
-DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
 CLIENT_ID = client_id
 CLIENT_SECRET = client_secret
 
@@ -89,7 +102,7 @@ def start_eventbrite_session():
         #  saves the token for future requests
         save_token(token)
 
-#  Main function to make the request.
+
 def Make_Eventbrite_request(url, params=None):
     global oauth2inst
 
@@ -99,32 +112,27 @@ def Make_Eventbrite_request(url, params=None):
     if not params:
         params = {}
 
-    return oauth2inst.get(url, params=params)
+    ident = create_request_identifier(url, params)
+    data = get_from_data_cache(ident,CACHE_DICTION)
+    if data:
+        print("Loading from data cache: {}... data".format(ident))
+    else:
+        print("Fetching data from {}".format(ident))
+        resp = oauth2inst.get(url, params=params)
+        data = json.loads(resp.text)
+        save_cache(data, ident)
+    return data
 
-# Making a request to events in the Ann Arbor area
-try:
-    aa_response_dict = get_data_cache('AA_cache_content.json')
-    print("We are using the cache file!\n")
+base_url = 'https://www.eventbriteapi.com/v3/events/search/'
 
-except:
-    print("Fetching data from the Eventbrite API for events in Ann Arbor, MI")
-    event_url = 'https://www.eventbriteapi.com/v3/events/search/'
-    aa_event_info = Make_Eventbrite_request(event_url, params = {"location.address": "Ann Arbor, MI"})
-    aa_response_dict = json.loads(aa_event_info.text)
-    save_cache(aa_response_dict, "AA_cache_content.json")
+#  Envoking the function to two separate locations
+aa_params = {"location.address": "Ann Arbor, MI"}
+aa_ident = create_request_identifier(base_url, aa_params)
+aa_data = Make_Eventbrite_request(base_url, aa_params)
 
-#  Making a request to get events in the San Francisco area
-try:
-    sf_response_dict = get_data_cache('SF_cache_content.json')
-    print("We are using the cache file!\n")
-
-except:
-    print("Fetching data from the Eventbrite API for events in San Francisco, CA")
-    event_url = 'https://www.eventbriteapi.com/v3/events/search/'
-    sf_event_info = Make_Eventbrite_request(event_url, params = {"location.address": "San Francisco, CA"})
-    sf_response_dict = json.loads(sf_event_info.text)
-    save_cache(sf_response_dict, "SF_cache_content.json")
-
+sf_params = {"location.address": "San Francisco, CA"}
+sf_ident = create_request_identifier(base_url, sf_params)
+sf_data = Make_Eventbrite_request(base_url, sf_params)
 
 # Class to handle assignment for CSV files
 class Assignment(object):
@@ -134,7 +142,10 @@ class Assignment(object):
         self.Name = json_data['name']['text'].encode('utf-8')
         self.Start = json_data['start']['local']
         self.End = json_data['end']['local']
-        self.Description = json_data['description']['text']
+        if json_data['description']['text'] == None:
+            self.Description = 'None'
+        else:
+            self.Description = json_data['description']['text']
         if json_data['is_free']:
             self.Price = "Free"
         if not json_data['is_free']:
@@ -142,11 +153,11 @@ class Assignment(object):
 
 #  Class instances of each event from the request
 aa_assingment = []
-for x in aa_response_dict['events']:
+for x in aa_data['events']:
     aa_assingment.append(Assignment(x))
 
 sf_assingment = []
-for x in sf_response_dict['events']:
+for x in sf_data['events']:
     sf_assingment.append(Assignment(x))
 
 ##############################################################################
